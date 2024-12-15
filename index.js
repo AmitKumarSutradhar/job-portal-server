@@ -29,8 +29,11 @@ async function run() {
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
-    // Jobs related API
+   
     const jobCollection  = client.db('jobPortal').collection('jobs');
+    const jobApplicationCollection = client.db('jobPortal').collection('job_applications');
+
+     // Jobs related API
     app.get('/jobs', async(req, res)=> {
       const cursor = jobCollection.find();
       const result = await cursor.toArray();
@@ -43,6 +46,21 @@ async function run() {
       const result = await jobCollection.findOne(query);
       res.send(result);
     })
+
+    // Job applicaton related API's
+
+    app.get('/job-applicaiton', async(req, res)=>{
+      const email = req.query.email;
+      const query = { aplicant_email: email };
+      const result = await jobApplicationCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.post('/job-applications', async(req, res)=>{
+      const application = req.body;
+      const result = await jobApplicationCollection.insertOne(application);
+      res.send(result);
+    });
 
   } finally {
     // Ensures that the client will close when you finish/error
