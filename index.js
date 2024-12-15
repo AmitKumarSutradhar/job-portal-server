@@ -29,34 +29,48 @@ async function run() {
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
-   
-    const jobCollection  = client.db('jobPortal').collection('jobs');
+
+    const jobsCollection = client.db('jobPortal').collection('jobs');
     const jobApplicationCollection = client.db('jobPortal').collection('job_applications');
 
-     // Jobs related API
-    app.get('/jobs', async(req, res)=> {
-      const cursor = jobCollection.find();
+    // Jobs related API
+    app.get('/jobs', async (req, res) => {
+      const cursor = jobsCollection.find();
       const result = await cursor.toArray();
       res.send(result);
     });
 
-    app.get('/jobs/:id', async(req, res)=>{
+    app.get('/jobs/:id', async (req, res) => {
       const jobId = req.params.id;
-      const query =  { _id : new ObjectId(jobId)};
-      const result = await jobCollection.findOne(query);
+      const query = { _id: new ObjectId(jobId) };
+      const result = await jobsCollection.findOne(query);
       res.send(result);
     })
 
     // Job applicaton related API's
 
-    app.get('/job-applicaiton', async(req, res)=>{
+    app.get('/job-applicaiton', async (req, res) => {
       const email = req.query.email;
       const query = { aplicant_email: email };
       const result = await jobApplicationCollection.find(query).toArray();
+
+      // To get job details 
+      for (const applicaiton of result) {
+        const query1 = { _id: new ObjectId(applicaiton.job_id) };
+        const job = await jobsCollection.findOne(query1);
+
+        if(job){
+          applicaiton.title = job.title;
+          applicaiton.company = job.company;
+          applicaiton.location = job.location;
+          applicaiton.company_logo = job.company_logo;
+        }
+      }
+
       res.send(result);
     });
 
-    app.post('/job-applications', async(req, res)=>{
+    app.post('/job-applications', async (req, res) => {
       const application = req.body;
       const result = await jobApplicationCollection.insertOne(application);
       res.send(result);
@@ -71,9 +85,9 @@ run().catch(console.dir);
 
 
 app.get('/', (req, res) => {
-    res.send("Job Portal Server is Running.")
+  res.send("Job Portal Server is Running.")
 })
 
-app.listen(port, () =>{
-    console.log(`Job portal server is running on port: ${port}`)
+app.listen(port, () => {
+  console.log(`Job portal server is running on port: ${port}`)
 })
