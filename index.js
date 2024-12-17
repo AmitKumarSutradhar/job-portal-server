@@ -12,8 +12,31 @@ app.use(cors({
   origin: ['http://localhost:5173'],
   credentials: true
 }));
-app.use(cookieParser())
 app.use(express.json());
+app.use(cookieParser());
+
+const logger = (req, res, next) => {
+  console.log("Inside the logger");
+  next();
+}
+
+const verifyToken = (req, res, next) => {
+  // console.log("Inside verify token middleware");
+  const token = req?.cookies?.token;
+
+  if (!token) {
+    return res.status(401).send({ messages: 'Unauthorized access' })
+  }
+
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decode) => {
+    if (err) {
+      return res.status(401).send({ message: 'Unauthorized access' })
+    }
+    req.user = decode;
+    next();
+  })
+
+}
 
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.dynrh.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -40,23 +63,23 @@ async function run() {
     const jobApplicationCollection = client.db('jobPortal').collection('job_applications');
 
     // Auth related API's 
-    app.post('/jwt', (req, res)=>{
+    app.post('/jwt', (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1h'});
-      res.cookie('token', token,{
+      const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' });
+      res.cookie('token', token, {
         httpOnly: true,
         secure: false
       })
-      .send({ success : true});
+        .send({ success: true });
     })
 
     // Jobs related API
-    app.get('/jobs', async (req, res) => {
+    app.get('/jobs', logger, async (req, res) => {
       const email = req.query.email;
       let query = {};
 
-      if(email){
-        query = { hr_email : email }
+      if (email) {
+        query = { hr_email: email }
       }
 
 
@@ -65,7 +88,7 @@ async function run() {
       res.send(result);
     });
 
-    app.post('/jobs', async(req, res)=>{
+    app.post('/jobs', async (req, res) => {
       const newJob = req.body;
       const result = await jobsCollection.insertOne(newJob);
       res.send(result);
@@ -80,9 +103,14 @@ async function run() {
 
     // Job applicaton related API's
 
-    app.get('/job-applicaiton', async (req, res) => {
+    app.get('/job-applicaiton', verifyToken, async (req, res) => {
       const email = req.query.email;
       const query = { aplicant_email: email };
+
+      if(req.user.email !== req.query.email) {
+        return res.status(403).send({ message: 'forbidden access'})
+      }
+
       const result = await jobApplicationCollection.find(query).toArray();
 
       // To get job details 
@@ -90,7 +118,7 @@ async function run() {
         const query1 = { _id: new ObjectId(applicaiton.job_id) };
         const job = await jobsCollection.findOne(query1);
 
-        if(job){
+        if (job) {
           applicaiton.title = job.title;
           applicaiton.company = job.company;
           applicaiton.location = job.location;
@@ -102,9 +130,9 @@ async function run() {
     });
 
 
-    app.get('/job-applications/jobs/:job_id', async(req, res) => {
+    app.get('/job-applications/jobs/:job_id', async (req, res) => {
       const jobId = req.params.job_id;
-      const query = { job_id : jobId };
+      const query = { job_id: jobId };
       const result = await jobApplicationCollection.find(query).toArray();
       res.send(result);
     })
@@ -115,12 +143,12 @@ async function run() {
       res.send(result);
     });
 
-    app.patch('/job-applications/:id', async(req, res)=>{
+    app.patch('/job-applications/:id', async (req, res) => {
       const id = req.params.id;
       const data = req.body;
-      const filter = { _id : new ObjectId(id)};
+      const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
-        $set : {
+        $set: {
           status: data.status,
         }
       }
