@@ -65,13 +65,20 @@ async function run() {
     // Auth related API's 
     app.post('/jwt', (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1h' });
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '5h' });
       res.cookie('token', token, {
         httpOnly: true,
         secure: false
       })
         .send({ success: true });
     })
+
+    app.post('/logout', (req, res) => {
+      res.clearCookie('token', {
+        httpOnly: true,
+        secure: false,
+      }).send({ success:true });
+    });
 
     // Jobs related API
     app.get('/jobs', logger, async (req, res) => {
